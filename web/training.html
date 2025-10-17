@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>トランプマスキュラー</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body data-page="training">
+    <canvas id="spectrum-canvas" class="spectrum-canvas" aria-hidden="true"></canvas>
+    <audio id="bg-music" src="bee.mp3" preload="auto" loop></audio>
+    <button id="sound-toggle" class="sound-toggle" type="button" aria-pressed="false">音を解放！</button>
+    <main class="app">
+      <header class="hero">
+        <div>
+          <p class="tag">Deck Remix</p>
+          <h1>トレーニングセッション</h1>
+          <p class="lead lead--session">
+            セッションをスタートしたらカードの指示に従ってフロウしよう。カードを引いてコンボを刻み、終わったらリザルトで成果をチェックだ！
+          </p>
+        </div>
+        <div class="hero-controls">
+          <button id="btn-draw" class="btn primary">
+            <span class="btn__label">カードを引く</span>
+            <span class="btn__hint">Enter</span>
+          </button>
+          <button id="btn-summary" class="btn ghost">
+            <span class="btn__label">途中経過</span>
+            <span class="btn__hint">S</span>
+          </button>
+          <button id="btn-result" class="btn ghost btn-result is-hidden" disabled>
+            <span class="btn__label">リザルトへ</span>
+          </button>
+          <a class="btn text" href="index.html">TOPへ戻る</a>
+        </div>
+      </header>
+
+      <section class="session-info" aria-label="タイマー">
+        <div class="session-info__metric">
+          <span>総トレーニング時間</span>
+          <strong id="total-time">00:00</strong>
+        </div>
+        <div class="session-info__metric">
+          <span>カードタイマー</span>
+          <strong id="countdown-timer">--:--</strong>
+        </div>
+      </section>
+
+      <section class="card-stage card-stage--inline">
+        <div class="card-layout">
+          <div class="card-cta">
+            <button id="btn-draw-mobile" class="btn primary btn--mobile">カードを引く</button>
+            <button id="btn-result-mobile" class="btn ghost btn--mobile is-hidden" disabled>リザルトへ</button>
+            <a class="btn text btn--mobile" href="index.html">TOPへ戻る</a>
+          </div>
+          <div id="card-display" class="card card--empty">
+            <div class="card__placeholder">
+              <span class="card__placeholder-icon">🃏</span>
+              <p>ドローでスタート、リズムでハート！燃やせ筋肉エンジン全開アート！ブラザー！！</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="status-grid">
+        <article class="status-card">
+          <h2>ステータスチェック</h2>
+          <div class="progress">
+            <div id="progress-bar" class="progress__bar"></div>
+          </div>
+          <p class="progress__text" id="progress-text">0 / 52 枚</p>
+        </article>
+        <article class="status-card totalling">
+          <h2>累計コンボ</h2>
+          <ul id="totals-list" class="totals"></ul>
+        </article>
+      </section>
+
+      <section class="card-stage">
+        <aside class="log">
+          <h3>ドローログ</h3>
+          <ol id="log-list" class="log__list"></ol>
+        </aside>
+      </section>
+
+      <section class="mapping">
+        <h2>カードと運動のマッチング</h2>
+        <div class="mapping__grid">
+          <div class="mapping__item" data-suit="spade">
+            <div class="mapping__icon">♠</div>
+            <div>
+              <h3>腕立て伏せ</h3>
+              <p>数字そのままの回数で胸を燃やそう！</p>
+            </div>
+          </div>
+          <div class="mapping__item" data-suit="heart">
+            <div class="mapping__icon">♥</div>
+            <div>
+              <h3>スクワット</h3>
+              <p>リズムに合わせて足腰を鍛えよう！</p>
+            </div>
+          </div>
+          <div class="mapping__item" data-suit="diamond">
+            <div class="mapping__icon">♦</div>
+            <div>
+              <h3>腹筋</h3>
+              <p>コアを締めて爆上げだ！</p>
+            </div>
+          </div>
+          <div class="mapping__item" data-suit="club">
+            <div class="mapping__icon">♣</div>
+            <div>
+              <h3>バーピー</h3>
+              <p>全身使って跳び回ろう！</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <p>全カード制覇で完全燃焼！クールダウンして次の挑戦へGO！</p>
+      </footer>
+    </main>
+
+    <dialog id="summary-dialog" class="summary">
+      <form method="dialog">
+        <h2>途中経過</h2>
+        <div id="summary-content"></div>
+        <menu>
+          <button class="btn primary" value="close">閉じる</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

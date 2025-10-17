@@ -29,17 +29,29 @@ const exerciseTips = {
 
 const totalsInitial = () => ({ 腕立て伏せ: 0, スクワット: 0, バーピー: 0, 腹筋: 0 });
 
+const RESULT_STORAGE_KEY = 'trump-muscular:last-result';
+const AUTO_RESULT_DELAY_MS = 600;
+const isTrainingPage = document.body?.dataset.page === 'training';
+
 const state = {
   deck: [],
   totals: totalsInitial(),
-  history: []
+  history: [],
+  startedAt: null,
+  sessionStarted: false,
+  navigateScheduled: false
+};
+
+const timers = {
+  totalInterval: null,
+  countdownInterval: null,
+  countdownRemaining: 0
 };
 
 const elements = {
   draw: document.getElementById('btn-draw'),
   drawMobile: document.getElementById('btn-draw-mobile'),
   summary: document.getElementById('btn-summary'),
-  reset: document.getElementById('btn-reset'),
   card: document.getElementById('card-display'),
   progressBar: document.getElementById('progress-bar'),
   progressText: document.getElementById('progress-text'),
@@ -49,7 +61,11 @@ const elements = {
   summaryContent: document.getElementById('summary-content'),
   soundToggle: document.getElementById('sound-toggle'),
   audio: document.getElementById('bg-music'),
-  spectrumCanvas: document.getElementById('spectrum-canvas')
+  spectrumCanvas: document.getElementById('spectrum-canvas'),
+  result: document.getElementById('btn-result'),
+  resultMobile: document.getElementById('btn-result-mobile'),
+  totalTimeDisplay: document.getElementById('total-time'),
+  countdownDisplay: document.getElementById('countdown-timer')
 };
 
 const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext || null;
@@ -72,32 +88,45 @@ const spectrumState = {
 };
 
 let musicReady = false;
-let soundMuted = true;
-let desiredSoundMuted = true;
+let soundMuted = !isTrainingPage;
+let desiredSoundMuted = !isTrainingPage;
 
-init();
+if (isTrainingPage) {
+  init();
+}
 
 function init() {
   resetState();
-  elements.draw.addEventListener('click', onDraw);
-  elements.drawMobile.addEventListener('click', onDraw);
-  elements.reset.addEventListener('click', () => {
-    resetState();
-    renderCardPlaceholder();
-  });
-  elements.summary.addEventListener('click', openSummary);
+  elements.draw?.addEventListener('click', onDraw);
+  elements.drawMobile?.addEventListener('click', onDraw);
+  elements.summary?.addEventListener('click', openSummary);
   window.addEventListener('keydown', handleShortcuts);
   if (elements.soundToggle) {
     elements.soundToggle.addEventListener('click', toggleSound);
   }
+  if (elements.result) {
+    elements.result.addEventListener('click', () => {
+      if (state.deck.length === 0) {
+        navigateToResult();
+      }
+    });
+  }
+  if (elements.resultMobile) {
+    elements.resultMobile.addEventListener('click', () => {
+      if (state.deck.length === 0) {
+        navigateToResult();
+      }
+    });
+  }
   setupSpectrumCanvas();
   prepareAudio();
   updateSoundToggleLabel();
-  if (!('showModal' in elements.summaryDialog)) {
+  if (elements.summaryDialog && !('showModal' in elements.summaryDialog)) {
     // graceful fallback
     elements.summaryDialog.setAttribute('open', 'open');
     elements.summaryDialog.classList.add('summary--inline');
   }
+  setTimeout(autoStartSession, 120);
 }
 
 function toggleSound() {
@@ -204,7 +233,7 @@ function primeSpectrumCanvas() {
   }
 }
 
-async function ensureAudioGraph() {
+function ensureAudioGraph() {
   if (!elements.audio) return;
   if (audioState.source || !AudioContextClass) return;
 
@@ -219,11 +248,12 @@ async function ensureAudioGraph() {
   audioState.dataArray = new Uint8Array(audioState.analyser.frequencyBinCount);
 }
 
-async function ensureAudioContextRunning() {
-  if (!audioState.context) return;
+function ensureAudioContextRunning() {
+  if (!audioState.context) return Promise.resolve();
   if (audioState.context.state === 'suspended') {
-    await audioState.context.resume();
+    return audioState.context.resume();
   }
+  return Promise.resolve();
 }
 
 function startSpectrumAnimation() {
@@ -325,11 +355,19 @@ function resetState() {
   shuffle(state.deck);
   state.totals = totalsInitial();
   state.history = [];
+  state.startedAt = null;
+  state.sessionStarted = false;
+  state.navigateScheduled = false;
   updateProgress();
   updateTotals();
   elements.logList.innerHTML = '';
   elements.draw.disabled = false;
   elements.drawMobile.disabled = false;
+  sessionStorage.removeItem(RESULT_STORAGE_KEY);
+  setResultButtonsEnabled(false);
+  resetTimers();
+  renderCardPlaceholder();
+  updateSessionControls();
 }
 
 function handleShortcuts(event) {
@@ -341,11 +379,8 @@ function handleShortcuts(event) {
     onDraw();
   } else if (event.key.toLowerCase() === 's') {
     event.preventDefault();
+    if (state.deck.length === 0) return;
     openSummary();
-  } else if (event.key.toLowerCase() === 'r') {
-    event.preventDefault();
-    resetState();
-    renderCardPlaceholder();
   }
 }
 
@@ -378,15 +413,27 @@ function onDraw() {
   const card = state.deck.pop();
   state.history.push(card);
   state.totals[card.exercise] += card.value;
+  startSessionIfNeeded();
   renderCard(card);
   updateTotals();
   updateProgress();
   addLogEntry(card);
+  startCardCountdown(card);
+  if (state.deck.length > 0) {
+    updateSessionControls();
+  }
   if (state.deck.length === 0) {
     elements.draw.textContent = 'コンプリート！';
     elements.drawMobile.textContent = 'コンプリート！';
     elements.draw.disabled = true;
     elements.drawMobile.disabled = true;
+    setResultButtonsEnabled(true);
+    updateCountdownDisplay(0);
+    stopCountdown();
+    updateTotalTimeDisplay(getElapsedSeconds());
+    stopTotalTimer();
+    persistResultSnapshot();
+    scheduleNavigateToResult();
   }
 }
 
@@ -521,10 +568,12 @@ async function applySoundState() {
   }
 
   try {
-    await ensureAudioGraph();
-    await ensureAudioContextRunning();
-    await elements.audio.play();
+    ensureAudioGraph();
+    const resumePromise = ensureAudioContextRunning();
+    const playPromise = elements.audio.play();
+    const normalizedPlayPromise = playPromise instanceof Promise ? playPromise : Promise.resolve();
     elements.audio.playbackRate = 1.2;
+    await Promise.all([resumePromise, normalizedPlayPromise]);
     soundMuted = false;
     startSpectrumAnimation();
   } catch (error) {
@@ -535,4 +584,180 @@ async function applySoundState() {
   }
 
   updateSoundToggleLabel();
+}
+
+function autoStartSession() {
+  if (!isTrainingPage) return;
+  if (state.history.length > 0 || state.sessionStarted) return;
+  if (state.deck.length === 0) return;
+  desiredSoundMuted = false;
+  updateSoundToggleLabel();
+  void applySoundState();
+  onDraw();
+}
+
+function startSessionIfNeeded() {
+  if (state.sessionStarted) return;
+  state.sessionStarted = true;
+  state.startedAt = Date.now();
+  startTotalTimer();
+}
+
+function startTotalTimer() {
+  if (!isTrainingPage) return;
+  stopTotalTimer();
+  updateTotalTimeDisplay(0);
+  updateTotalTimeDisplay(getElapsedSeconds());
+  timers.totalInterval = setInterval(() => {
+    updateTotalTimeDisplay(getElapsedSeconds());
+  }, 1000);
+}
+
+function stopTotalTimer() {
+  if (timers.totalInterval) {
+    clearInterval(timers.totalInterval);
+    timers.totalInterval = null;
+  }
+}
+
+function getElapsedSeconds() {
+  if (!state.startedAt) return 0;
+  return Math.max(0, Math.floor((Date.now() - state.startedAt) / 1000));
+}
+
+function resetTimers() {
+  stopTotalTimer();
+  stopCountdown(true);
+  timers.countdownRemaining = 0;
+  updateTotalTimeDisplay(0);
+}
+
+function updateTotalTimeDisplay(totalSeconds) {
+  if (!elements.totalTimeDisplay) return;
+  elements.totalTimeDisplay.textContent = formatSeconds(totalSeconds ?? 0);
+}
+
+function startCardCountdown(card) {
+  if (!elements.countdownDisplay) return;
+  const seconds = (card?.value ?? 0) + 10;
+  stopCountdown();
+  timers.countdownRemaining = seconds;
+  updateCountdownDisplay(seconds);
+  if (seconds <= 0) {
+    if (state.deck.length > 0) onDraw();
+    return;
+  }
+  const intervalId = setInterval(() => {
+    if (timers.countdownInterval !== intervalId) {
+      clearInterval(intervalId);
+      return;
+    }
+    timers.countdownRemaining -= 1;
+    if (timers.countdownRemaining <= 0) {
+      updateCountdownDisplay(0);
+      stopCountdown();
+      if (state.deck.length > 0) {
+        onDraw();
+      } else {
+        scheduleNavigateToResult();
+      }
+    } else {
+      updateCountdownDisplay(timers.countdownRemaining);
+    }
+  }, 1000);
+  timers.countdownInterval = intervalId;
+}
+
+function stopCountdown(clear = false) {
+  if (timers.countdownInterval) {
+    clearInterval(timers.countdownInterval);
+    timers.countdownInterval = null;
+  }
+  timers.countdownRemaining = 0;
+  if (clear) {
+    updateCountdownDisplay(null);
+  }
+}
+
+function updateCountdownDisplay(seconds) {
+  if (!elements.countdownDisplay) return;
+  if (seconds === null || seconds === undefined) {
+    elements.countdownDisplay.textContent = '--:--';
+    return;
+  }
+  elements.countdownDisplay.textContent = formatSeconds(seconds);
+}
+
+function formatSeconds(totalSeconds) {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(seconds / 60);
+  const remain = seconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(remain).padStart(2, '0')}`;
+}
+
+function scheduleNavigateToResult() {
+  if (state.navigateScheduled) return;
+  state.navigateScheduled = true;
+  setTimeout(() => {
+    navigateToResult();
+  }, AUTO_RESULT_DELAY_MS);
+}
+
+function navigateToResult() {
+  state.navigateScheduled = true;
+  try {
+    elements.audio?.pause();
+  } catch (error) {
+    // no-op
+  }
+  persistResultSnapshot();
+  window.location.href = 'result.html';
+}
+
+function persistResultSnapshot() {
+  if (state.history.length === 0) return;
+  const now = Date.now();
+  const startedAt = state.startedAt ?? now;
+  const durationSeconds = state.startedAt ? Math.max(0, Math.round((now - state.startedAt) / 1000)) : 0;
+  const snapshot = {
+    version: 1,
+    completedAt: now,
+    startedAt,
+    durationSeconds,
+    totals: { ...state.totals },
+    history: state.history.map((card, index) => ({
+      order: index + 1,
+      key: card.key,
+      suit: card.name,
+      glyph: card.glyph,
+      rank: card.rank,
+      value: card.value,
+      exercise: card.exercise
+    })),
+    draws: state.history.length,
+    totalReps: Object.values(state.totals).reduce((sum, count) => sum + count, 0)
+  };
+  sessionStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify(snapshot));
+}
+
+function setResultButtonsEnabled(enabled) {
+  [elements.result, elements.resultMobile].forEach((btn) => {
+    if (!btn) return;
+    btn.disabled = !enabled;
+    btn.classList.toggle('btn-result--ready', enabled);
+  });
+  updateSessionControls();
+}
+
+function updateSessionControls() {
+  const finished = state.deck.length === 0;
+  if (elements.summary) {
+    elements.summary.classList.toggle('is-hidden', finished);
+  }
+  if (elements.result) {
+    elements.result.classList.toggle('is-hidden', !finished);
+  }
+  if (elements.resultMobile) {
+    elements.resultMobile.classList.toggle('is-hidden', !finished);
+  }
 }
