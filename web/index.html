@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Card Trainer Web</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <main class="app">
+      <header class="hero">
+        <div>
+          <p class="tag">Web Edition</p>
+          <h1>トランプ筋トレ トレーナー</h1>
+          <p class="lead">
+            シャッフルされた52枚のカードをめくりながら、燃えるトレーニングをキメるぜ！
+          </p>
+        </div>
+        <div class="hero-controls">
+          <button id="btn-draw" class="btn primary">
+            <span class="btn__label">カードを引く</span>
+            <span class="btn__hint">Enter</span>
+          </button>
+          <button id="btn-summary" class="btn ghost">
+            <span class="btn__label">途中経過</span>
+            <span class="btn__hint">S</span>
+          </button>
+          <button id="btn-reset" class="btn text">
+            <span class="btn__label">リセット</span>
+            <span class="btn__hint">R</span>
+          </button>
+        </div>
+      </header>
+
+      <section class="card-stage card-stage--inline">
+        <div class="card-layout">
+          <div class="card-cta">
+            <button id="btn-draw-mobile" class="btn primary btn--mobile">カードを引く</button>
+          </div>
+          <div id="card-display" class="card card--empty">
+            <div class="card__placeholder">
+              <span class="card__placeholder-icon">🃏</span>
+              <p>「カードを引く」でテンションぶち上げていくぞブラザー！！</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="status-grid">
+        <article class="status-card">
+          <h2>ステータスチェック</h2>
+          <div class="progress">
+            <div id="progress-bar" class="progress__bar"></div>
+          </div>
+          <p class="progress__text" id="progress-text">0 / 52 枚</p>
+        </article>
+        <article class="status-card totalling">
+          <h2>累計コンボ</h2>
+          <ul id="totals-list" class="totals"></ul>
+        </article>
+      </section>
+
+      <section class="card-stage">
+        <aside class="log">
+          <h3>ドローログ</h3>
+          <ol id="log-list" class="log__list"></ol>
+        </aside>
+      </section>
+
+      <section class="mapping">
+        <h2>カードと運動のマッチング</h2>
+        <div class="mapping__grid">
+          <div class="mapping__item" data-suit="spade">
+            <div class="mapping__icon">♠</div>
+            <div>
+              <h3>腕立て伏せ</h3>
+              <p>数字そのままの回数で胸を燃やそう！</p>
+            </div>
+          </div>
+          <div class="mapping__item" data-suit="heart">
+            <div class="mapping__icon">♥</div>
+            <div>
+              <h3>スクワット</h3>
+              <p>リズムに合わせて足腰を鍛えよう！</p>
+            </div>
+          </div>
+          <div class="mapping__item" data-suit="diamond">
+            <div class="mapping__icon">♦</div>
+            <div>
+              <h3>腹筋</h3>
+              <p>コアを締めて爆上げだ！</p>
+            </div>
+          </div>
+          <div class="mapping__item" data-suit="club">
+            <div class="mapping__icon">♣</div>
+            <div>
+              <h3>バーピー</h3>
+              <p>全身使って跳び回ろう！</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <p>全カード制覇で完全燃焼！クールダウンして次の挑戦へGO！</p>
+      </footer>
+    </main>
+
+    <dialog id="summary-dialog" class="summary">
+      <form method="dialog">
+        <h2>途中経過</h2>
+        <div id="summary-content"></div>
+        <menu>
+          <button class="btn primary" value="close">閉じる</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
