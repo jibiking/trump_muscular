@@ -17,7 +17,7 @@ module CardTrainer
                  when 'A' then 1
                  when 'J' then 11
                  when 'Q' then 12
-                 when 'K' then 20
+                when 'K' then 22
                  else
                    rank.to_i
                  end
@@ -212,7 +212,7 @@ module CardTrainer
       puts header
       if card.rank == 'K'
         puts 'ウィィィー！！！'
-        puts 'Kのカードはボーナスで20回実施だぜ！最高だな！ブラザー！！'
+        puts 'Kのカードはボーナスで22回実施だぜ！最高だな！ブラザー！！'
       else
         puts motivational_message(card.exercise)
       end

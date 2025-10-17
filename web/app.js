@@ -10,7 +10,7 @@ const valueByRank = {
   A: 1,
   J: 11,
   Q: 12,
-  K: 20
+  K: 22
 };
 
 const exerciseLabels = {
@@ -21,10 +21,10 @@ const exerciseLabels = {
 };
 
 const exerciseTips = {
-  腕立て伏せ: '胸を張って体を一直線に保とう！ブラザー！！',
-  スクワット: '膝とつま先を同じ向きにそろえて踏み込め！ブラザー！！',
-  バーピー: '全身を大きく使って爆発的に跳べ！ブラザー！！',
-  腹筋: '呼吸を刻んでゆっくり締めろ！ブラザー！！'
+  腕立て伏せ: '胸張って体幹ロック、肘絞り押し込むフロアでノック',
+  スクワット: 'かかと踏みしめリズムでドロップ、腰落とし弾き返せステージトップ',
+  バーピー: 'しゃがんで跳ねる爆裂ダッシュ、胸まで戻って全身スプラッシュ',
+  腹筋: '背中を寝かせてコアをクラッチ、呼吸で刻んで芯までキャッチ'
 };
 
 const totalsInitial = () => ({ 腕立て伏せ: 0, スクワット: 0, バーピー: 0, 腹筋: 0 });
@@ -46,8 +46,34 @@ const elements = {
   totalsList: document.getElementById('totals-list'),
   logList: document.getElementById('log-list'),
   summaryDialog: document.getElementById('summary-dialog'),
-  summaryContent: document.getElementById('summary-content')
+  summaryContent: document.getElementById('summary-content'),
+  soundToggle: document.getElementById('sound-toggle'),
+  audio: document.getElementById('bg-music'),
+  spectrumCanvas: document.getElementById('spectrum-canvas')
 };
+
+const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext || null;
+
+const audioState = {
+  context: null,
+  analyser: null,
+  source: null,
+  animationId: null,
+  dataArray: null
+};
+
+const spectrumState = {
+  canvas: elements.spectrumCanvas,
+  ctx: null,
+  width: 0,
+  height: 0,
+  gradient: null,
+  barCount: 80
+};
+
+let musicReady = false;
+let soundMuted = true;
+let desiredSoundMuted = true;
 
 init();
 
@@ -61,11 +87,237 @@ function init() {
   });
   elements.summary.addEventListener('click', openSummary);
   window.addEventListener('keydown', handleShortcuts);
+  if (elements.soundToggle) {
+    elements.soundToggle.addEventListener('click', toggleSound);
+  }
+  setupSpectrumCanvas();
+  prepareAudio();
+  updateSoundToggleLabel();
   if (!('showModal' in elements.summaryDialog)) {
     // graceful fallback
     elements.summaryDialog.setAttribute('open', 'open');
     elements.summaryDialog.classList.add('summary--inline');
   }
+}
+
+function toggleSound() {
+  desiredSoundMuted = !desiredSoundMuted;
+  if (!musicReady) {
+    updateSoundToggleLabel();
+    return;
+  }
+  void applySoundState();
+}
+
+function updateSoundToggleLabel() {
+  if (!elements.soundToggle) return;
+  if (!elements.audio) {
+    elements.soundToggle.textContent = 'サウンド未対応';
+    elements.soundToggle.disabled = true;
+    elements.soundToggle.removeAttribute('data-status');
+    elements.soundToggle.removeAttribute('title');
+    elements.soundToggle.setAttribute('aria-pressed', 'false');
+    return;
+  }
+  const muted = musicReady ? soundMuted : desiredSoundMuted;
+  elements.soundToggle.textContent = muted ? '音を解放！' : 'サウンド停止';
+  if (!musicReady) {
+    elements.soundToggle.dataset.status = 'loading';
+    elements.soundToggle.title = '音源読み込み中です';
+  } else {
+    elements.soundToggle.removeAttribute('data-status');
+    elements.soundToggle.removeAttribute('title');
+  }
+  elements.soundToggle.disabled = false;
+  elements.soundToggle.setAttribute('aria-pressed', String(!muted));
+  elements.soundToggle.dataset.state = muted ? 'off' : 'on';
+}
+
+function prepareAudio() {
+  if (!elements.audio) {
+    musicReady = false;
+    return;
+  }
+
+  elements.audio.volume = 0.65;
+  elements.audio.loop = true;
+  elements.audio.playbackRate = 1.2;
+
+  const markReady = () => {
+    if (musicReady) return;
+    musicReady = true;
+    updateSoundToggleLabel();
+    if (!desiredSoundMuted) {
+      void applySoundState();
+    }
+  };
+
+  if (elements.audio.readyState >= 2) {
+    markReady();
+  } else {
+    elements.audio.addEventListener('canplay', markReady, { once: true });
+    elements.audio.addEventListener('loadeddata', markReady, { once: true });
+  }
+}
+
+function setupSpectrumCanvas() {
+  if (!spectrumState.canvas) return;
+  const ctx = spectrumState.canvas.getContext('2d');
+  if (!ctx) return;
+  spectrumState.ctx = ctx;
+  updateSpectrumDimensions();
+  window.addEventListener('resize', updateSpectrumDimensions);
+}
+
+function updateSpectrumDimensions() {
+  if (!spectrumState.canvas || !spectrumState.ctx) return;
+  const dpr = window.devicePixelRatio || 1;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const { canvas, ctx } = spectrumState;
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(dpr, dpr);
+  spectrumState.width = width;
+  spectrumState.height = height;
+  spectrumState.gradient = ctx.createLinearGradient(0, height, width, 0);
+  spectrumState.gradient.addColorStop(0, 'rgba(255, 75, 160, 0.28)');
+  spectrumState.gradient.addColorStop(0.2, 'rgba(255, 210, 70, 0.32)');
+  spectrumState.gradient.addColorStop(0.4, 'rgba(80, 240, 255, 0.35)');
+  spectrumState.gradient.addColorStop(0.6, 'rgba(120, 90, 255, 0.36)');
+  spectrumState.gradient.addColorStop(0.8, 'rgba(255, 70, 200, 0.32)');
+  spectrumState.gradient.addColorStop(1, 'rgba(255, 255, 255, 0.26)');
+  primeSpectrumCanvas();
+}
+
+function primeSpectrumCanvas() {
+  if (!spectrumState.ctx) return;
+  spectrumState.ctx.fillStyle = 'rgba(5, 0, 26, 0.9)';
+  spectrumState.ctx.fillRect(0, 0, spectrumState.width, spectrumState.height);
+  if (spectrumState.gradient) {
+    spectrumState.ctx.save();
+    spectrumState.ctx.globalCompositeOperation = 'screen';
+    spectrumState.ctx.fillStyle = spectrumState.gradient;
+    spectrumState.ctx.fillRect(0, 0, spectrumState.width, spectrumState.height);
+    spectrumState.ctx.restore();
+  }
+}
+
+async function ensureAudioGraph() {
+  if (!elements.audio) return;
+  if (audioState.source || !AudioContextClass) return;
+
+  audioState.context = new AudioContextClass();
+  audioState.analyser = audioState.context.createAnalyser();
+  audioState.analyser.fftSize = 512;
+  audioState.analyser.smoothingTimeConstant = 0.78;
+
+  audioState.source = audioState.context.createMediaElementSource(elements.audio);
+  audioState.source.connect(audioState.analyser);
+  audioState.analyser.connect(audioState.context.destination);
+  audioState.dataArray = new Uint8Array(audioState.analyser.frequencyBinCount);
+}
+
+async function ensureAudioContextRunning() {
+  if (!audioState.context) return;
+  if (audioState.context.state === 'suspended') {
+    await audioState.context.resume();
+  }
+}
+
+function startSpectrumAnimation() {
+  if (!audioState.analyser || !spectrumState.ctx) return;
+  if (!audioState.dataArray || audioState.dataArray.length !== audioState.analyser.frequencyBinCount) {
+    audioState.dataArray = new Uint8Array(audioState.analyser.frequencyBinCount);
+  }
+  if (audioState.animationId) return;
+
+  const render = () => {
+    drawSpectrumFrame();
+    audioState.animationId = requestAnimationFrame(render);
+  };
+
+  render();
+}
+
+function stopSpectrumAnimation(clear = false) {
+  if (audioState.animationId) {
+    cancelAnimationFrame(audioState.animationId);
+    audioState.animationId = null;
+  }
+  if (clear) {
+    primeSpectrumCanvas();
+  }
+}
+
+function drawSpectrumFrame() {
+  if (!audioState.analyser || !audioState.dataArray || !spectrumState.ctx) return;
+  const { ctx, width, height, gradient, barCount } = spectrumState;
+  if (!width || !height) return;
+
+  audioState.analyser.getByteFrequencyData(audioState.dataArray);
+
+  ctx.fillStyle = 'rgba(5, 0, 26, 0.25)';
+  ctx.fillRect(0, 0, width, height);
+
+  const halfBars = Math.floor(barCount / 2);
+  const step = Math.max(1, Math.floor(audioState.dataArray.length / halfBars));
+  const barWidth = Math.max(2, width / (barCount * 1.8));
+  const gap = barWidth * 0.45;
+  const centerX = width / 2;
+  const baseY = height * 0.6;
+  const maxBarHeight = height * 0.55;
+
+  if (gradient) {
+    ctx.save();
+    ctx.globalAlpha = 0.18;
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
+
+  const time = performance.now();
+  const hueBase = (time / 35) % 360;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  for (let i = 0; i < halfBars; i += 1) {
+    const dataIndex = Math.min(audioState.dataArray.length - 1, i * step);
+    const magnitude = audioState.dataArray[dataIndex] / 255;
+    const barHeight = Math.max(10, magnitude * maxBarHeight);
+    const offset = i * (barWidth + gap);
+    const leftX = centerX - offset - barWidth;
+    const rightX = centerX + offset;
+
+    const hue = (hueBase + i * 7) % 360;
+    const saturation = 70 + magnitude * 28;
+    const lightnessBottom = 42 + magnitude * 28;
+    const lightnessTop = Math.min(88, lightnessBottom + 18);
+    const alpha = 0.55 + magnitude * 0.35;
+
+    const gradientBottom = `hsla(${hue.toFixed(1)}, ${Math.min(100, saturation + 10).toFixed(1)}%, ${Math.min(75, lightnessBottom).toFixed(1)}%, ${(alpha * 0.85).toFixed(2)})`;
+    const gradientMid = `hsla(${(hue + 32) % 360}, ${Math.min(100, saturation + 24).toFixed(1)}%, ${Math.min(82, lightnessTop).toFixed(1)}%, ${alpha.toFixed(2)})`;
+    const gradientTop = `hsla(${(hue + 58) % 360}, ${Math.min(100, saturation + 32).toFixed(1)}%, ${Math.min(90, lightnessTop + 6).toFixed(1)}%, ${(alpha * 0.9).toFixed(2)})`;
+
+    const barGradient = ctx.createLinearGradient(leftX, baseY + barHeight, leftX, baseY - barHeight);
+    barGradient.addColorStop(0, gradientBottom);
+    barGradient.addColorStop(0.45, gradientMid);
+    barGradient.addColorStop(1, gradientTop);
+
+    ctx.shadowColor = `hsla(${(hue + 12) % 360}, 95%, 70%, ${(0.28 + magnitude * 0.4).toFixed(2)})`;
+    ctx.shadowBlur = 14 + magnitude * 28;
+    ctx.fillStyle = barGradient;
+
+    ctx.fillRect(leftX, baseY - barHeight, barWidth, barHeight * 2);
+    ctx.fillRect(rightX, baseY - barHeight, barWidth, barHeight * 2);
+  }
+  ctx.shadowBlur = 0;
+  ctx.restore();
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+  ctx.fillRect(0, baseY, width, 1.5);
 }
 
 function resetState() {
@@ -141,7 +393,7 @@ function onDraw() {
 function renderCard(card) {
   elements.card.classList.remove('card--empty');
   const shortName = exerciseLabels[card.exercise] ?? card.exercise;
-  const tip = exerciseTips[card.exercise];
+  const guidance = buildGuidance(card);
   elements.card.innerHTML = `
     <div class="card__header">
       <span class="card__suit ${card.toneClass}">${card.glyph}</span>
@@ -150,7 +402,7 @@ function renderCard(card) {
     <div class="card__body">
       <div class="card__exercise">${shortName}</div>
       <p class="card__value">${card.value} 回</p>
-      ${renderHint(card, tip)}
+      ${guidance}
     </div>
     <div class="card__footer">
       <span>累計 ${state.totals[card.exercise]} 回</span>
@@ -167,7 +419,7 @@ function renderCardPlaceholder() {
   elements.card.innerHTML = `
     <div class="card__placeholder">
       <span class="card__placeholder-icon">🃏</span>
-      <p>ビートに乗せて「カードを引く」をキメよう！ブラザー！！</p>
+      <p>ドローでスタート、リズムでハート！燃やせ筋肉エンジン全開アート！ブラザー！！</p>
     </div>
   `;
   elements.draw.textContent = 'カードを引く';
@@ -224,13 +476,63 @@ function openSummary() {
   }
 }
 
-function renderHint(card, defaultHint) {
+function getHypeLine(card) {
   if (card.rank === 'K') {
-    return `
-      <p class="card__shout">ウィィィー！！！</p>
-      <p class="card__hint">Kのカードはボーナスで20回実施だぜ！最高だな！ブラザー！！</p>
-    `;
+    return 'ウィィィー！！！キングで22回コンボフィーバー、クラブビート合わせて筋肉リーダー！ブラザー！！';
   }
 
-  return defaultHint ? `<p class="card__hint">${defaultHint}</p>` : '';
+  const hypePool = [
+    'ビートに乗って全力アップロード、粘り切って限界ブレイクモード！ブラザー！！',
+    'ステップ刻んでフロアにライドオン、汗が光ってテンションハイゾーン！ブラザー！！',
+    'コアを締めて呼吸はディープゾーン、フォーム決めれば勝利はマイゾーン！ブラザー！！',
+    '仲間の声援フレイムでファイヤーオン、最後の一回ブチ抜けチャンピオン！ブラザー！！'
+  ];
+  return hypePool[(card.value + card.rank.charCodeAt(0)) % hypePool.length];
+}
+
+function buildGuidance(card) {
+  const hype = getHypeLine(card);
+
+  if (card.rank === 'K') {
+    return `<p class="card__flow card__flow--lead">${hype}</p>`;
+  }
+
+  const tip = exerciseTips[card.exercise];
+  return `<p class="card__flow card__flow--lead">${tip}！${hype}</p>`;
+}
+
+async function applySoundState() {
+  if (!elements.audio) {
+    updateSoundToggleLabel();
+    return;
+  }
+
+  if (!musicReady) {
+    updateSoundToggleLabel();
+    return;
+  }
+
+  if (desiredSoundMuted) {
+    elements.audio.pause();
+    soundMuted = true;
+    stopSpectrumAnimation(true);
+    updateSoundToggleLabel();
+    return;
+  }
+
+  try {
+    await ensureAudioGraph();
+    await ensureAudioContextRunning();
+    await elements.audio.play();
+    elements.audio.playbackRate = 1.2;
+    soundMuted = false;
+    startSpectrumAnimation();
+  } catch (error) {
+    console.error('音声の再生に失敗しました', error);
+    desiredSoundMuted = true;
+    soundMuted = true;
+    stopSpectrumAnimation(true);
+  }
+
+  updateSoundToggleLabel();
 }

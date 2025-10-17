@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Card Trainer Web</title>
+    <title>トランプマスキュラー</title>
     <link rel="stylesheet" href="styles.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -13,13 +13,16 @@
     />
   </head>
   <body>
+    <canvas id="spectrum-canvas" class="spectrum-canvas" aria-hidden="true"></canvas>
+    <audio id="bg-music" src="bee.mp3" preload="auto" loop></audio>
+    <button id="sound-toggle" class="sound-toggle" type="button" aria-pressed="false">音を解放！</button>
     <main class="app">
       <header class="hero">
         <div>
-          <p class="tag">Web Edition</p>
-          <h1>トランプ筋トレ トレーナー</h1>
+          <p class="tag">Deck Remix</p>
+          <h1>トランプマスキュラー</h1>
           <p class="lead">
-            シャッフルされた52枚のカードをめくりながら、燃えるトレーニングをキメるぜ！
+            デッキをシャッフルしてトランプを1枚ずつドロー。表示されたスートとランクに応じた回数・種目で全身を鍛え、進捗や累計回数を可視化しながらクラブビートと一緒に追い込めるインタラクティブ筋トレアプリだブラザー！！
           </p>
         </div>
         <div class="hero-controls">
@@ -46,7 +49,7 @@
           <div id="card-display" class="card card--empty">
             <div class="card__placeholder">
               <span class="card__placeholder-icon">🃏</span>
-              <p>「カードを引く」でテンションぶち上げていくぞブラザー！！</p>
+              <p>ドローでスタート、リズムでハート！燃やせ筋肉エンジン全開アート！ブラザー！！</p>
             </div>
           </div>
         </div>
