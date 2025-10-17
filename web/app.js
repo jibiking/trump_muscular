@@ -143,6 +143,7 @@ function init() {
     elements.summaryDialog.classList.add('summary--inline');
   }
   setTimeout(autoStartSession, 120);
+  setupAutoplayFallback();
 }
 
 function toggleSound() {
@@ -601,7 +602,6 @@ async function applySoundState() {
     startSpectrumAnimation();
   } catch (error) {
     console.error('音声の再生に失敗しました', error);
-    desiredSoundMuted = true;
     soundMuted = true;
     stopSpectrumAnimation(true);
   }
@@ -625,6 +625,9 @@ function startSessionIfNeeded() {
   state.startedAt = Date.now();
   updateTotalTimeDisplay(0);
   startTotalTimer();
+  if (!desiredSoundMuted && soundMuted) {
+    void applySoundState();
+  }
 }
 
 function startTotalTimer() {
@@ -743,6 +746,31 @@ function scheduleNavigateToResult() {
   setTimeout(() => {
     navigateToResult();
   }, AUTO_RESULT_DELAY_MS);
+}
+
+function setupAutoplayFallback() {
+  if (!isTrainingPage) return;
+  const attemptResume = () => {
+    if (!desiredSoundMuted && soundMuted) {
+      void applySoundState();
+    }
+  };
+  ['pointerdown', 'touchstart'].forEach((eventName) => {
+    window.addEventListener(
+      eventName,
+      () => {
+        attemptResume();
+      },
+      { once: true, passive: true }
+    );
+  });
+  window.addEventListener(
+    'keydown',
+    () => {
+      attemptResume();
+    },
+    { once: true }
+  );
 }
 
 function playChangeSound() {
