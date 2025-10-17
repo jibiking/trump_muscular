@@ -48,6 +48,22 @@ const timers = {
   countdownRemaining: 0
 };
 
+const pauseState = {
+  countdownRemaining: null,
+  wasSoundPlaying: false,
+  spectrumRunning: false
+};
+
+let summaryPaused = false;
+
+const changeSound = (() => {
+  if (!isTrainingPage || typeof Audio === 'undefined') return null;
+  const audio = new Audio('change.mp3');
+  audio.preload = 'auto';
+  audio.volume = 0.7;
+  return audio;
+})();
+
 const elements = {
   draw: document.getElementById('btn-draw'),
   drawMobile: document.getElementById('btn-draw-mobile'),
@@ -358,6 +374,10 @@ function resetState() {
   state.startedAt = null;
   state.sessionStarted = false;
   state.navigateScheduled = false;
+  summaryPaused = false;
+  pauseState.countdownRemaining = null;
+  pauseState.wasSoundPlaying = false;
+  pauseState.spectrumRunning = false;
   updateProgress();
   updateTotals();
   elements.logList.innerHTML = '';
@@ -418,6 +438,7 @@ function onDraw() {
   updateTotals();
   updateProgress();
   addLogEntry(card);
+  playChangeSound();
   startCardCountdown(card);
   if (state.deck.length > 0) {
     updateSessionControls();
@@ -519,7 +540,9 @@ function openSummary() {
   `;
 
   if ('showModal' in elements.summaryDialog) {
+    pauseSessionForSummary();
     elements.summaryDialog.showModal();
+    elements.summaryDialog.addEventListener('close', resumeSessionFromSummary, { once: true });
   }
 }
 
@@ -600,13 +623,13 @@ function startSessionIfNeeded() {
   if (state.sessionStarted) return;
   state.sessionStarted = true;
   state.startedAt = Date.now();
+  updateTotalTimeDisplay(0);
   startTotalTimer();
 }
 
 function startTotalTimer() {
-  if (!isTrainingPage) return;
+  if (!isTrainingPage || !state.startedAt) return;
   stopTotalTimer();
-  updateTotalTimeDisplay(0);
   updateTotalTimeDisplay(getElapsedSeconds());
   timers.totalInterval = setInterval(() => {
     updateTotalTimeDisplay(getElapsedSeconds());
@@ -639,14 +662,22 @@ function updateTotalTimeDisplay(totalSeconds) {
 
 function startCardCountdown(card) {
   if (!elements.countdownDisplay) return;
-  const seconds = (card?.value ?? 0) + 10;
-  stopCountdown();
-  timers.countdownRemaining = seconds;
-  updateCountdownDisplay(seconds);
-  if (seconds <= 0) {
-    if (state.deck.length > 0) onDraw();
+  pauseCountdown();
+  timers.countdownRemaining = (card?.value ?? 0) + 10;
+  updateCountdownDisplay(timers.countdownRemaining);
+  startCountdownTicker();
+}
+
+function startCountdownTicker() {
+  if (timers.countdownRemaining <= 0) {
+    if (state.deck.length > 0) {
+      onDraw();
+    } else {
+      scheduleNavigateToResult();
+    }
     return;
   }
+  pauseCountdown();
   const intervalId = setInterval(() => {
     if (timers.countdownInterval !== intervalId) {
       clearInterval(intervalId);
@@ -655,7 +686,8 @@ function startCardCountdown(card) {
     timers.countdownRemaining -= 1;
     if (timers.countdownRemaining <= 0) {
       updateCountdownDisplay(0);
-      stopCountdown();
+      pauseCountdown();
+      timers.countdownRemaining = 0;
       if (state.deck.length > 0) {
         onDraw();
       } else {
@@ -668,11 +700,21 @@ function startCardCountdown(card) {
   timers.countdownInterval = intervalId;
 }
 
-function stopCountdown(clear = false) {
+function pauseCountdown() {
   if (timers.countdownInterval) {
     clearInterval(timers.countdownInterval);
     timers.countdownInterval = null;
   }
+}
+
+function resumeCountdown() {
+  if (timers.countdownRemaining > 0) {
+    startCountdownTicker();
+  }
+}
+
+function stopCountdown(clear = false) {
+  pauseCountdown();
   timers.countdownRemaining = 0;
   if (clear) {
     updateCountdownDisplay(null);
@@ -701,6 +743,21 @@ function scheduleNavigateToResult() {
   setTimeout(() => {
     navigateToResult();
   }, AUTO_RESULT_DELAY_MS);
+}
+
+function playChangeSound() {
+  if (!changeSound) return;
+  try {
+    changeSound.currentTime = 0;
+    const playPromise = changeSound.play();
+    if (playPromise instanceof Promise) {
+      playPromise.catch(() => {
+        /* ignore autoplay restrictions */
+      });
+    }
+  } catch (error) {
+    // ignore playback errors
+  }
 }
 
 function navigateToResult() {
@@ -760,4 +817,53 @@ function updateSessionControls() {
   if (elements.resultMobile) {
     elements.resultMobile.classList.toggle('is-hidden', !finished);
   }
+}
+
+function pauseSessionForSummary() {
+  if (!isTrainingPage || summaryPaused) return;
+  summaryPaused = true;
+  pauseState.countdownRemaining = timers.countdownRemaining;
+  pauseState.wasSoundPlaying = !desiredSoundMuted && !soundMuted && elements.audio && !elements.audio.paused;
+  pauseState.spectrumRunning = Boolean(audioState.animationId);
+  pauseCountdown();
+  stopTotalTimer();
+  if (pauseState.wasSoundPlaying && elements.audio) {
+    try {
+      elements.audio.pause();
+      soundMuted = true;
+    } catch (error) {
+      /* ignore */
+    }
+  }
+  if (pauseState.spectrumRunning) {
+    stopSpectrumAnimation();
+  }
+  updateSoundToggleLabel();
+}
+
+function resumeSessionFromSummary() {
+  if (!isTrainingPage || !summaryPaused) return;
+  summaryPaused = false;
+  if (state.sessionStarted && state.deck.length > 0) {
+    startTotalTimer();
+  }
+  if (pauseState.countdownRemaining && pauseState.countdownRemaining > 0 && state.deck.length > 0) {
+    timers.countdownRemaining = pauseState.countdownRemaining;
+    updateCountdownDisplay(timers.countdownRemaining);
+    resumeCountdown();
+  }
+  pauseState.countdownRemaining = null;
+  if (pauseState.wasSoundPlaying) {
+    desiredSoundMuted = false;
+    soundMuted = true;
+    void applySoundState();
+    if (pauseState.spectrumRunning) {
+      startSpectrumAnimation();
+    }
+  } else if (pauseState.spectrumRunning && !desiredSoundMuted) {
+    startSpectrumAnimation();
+  }
+  pauseState.wasSoundPlaying = false;
+  pauseState.spectrumRunning = false;
+  updateSoundToggleLabel();
 }
