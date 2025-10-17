@@ -188,6 +188,8 @@ function prepareAudio() {
   elements.audio.volume = 0.65;
   elements.audio.loop = true;
   elements.audio.playbackRate = 1.2;
+  elements.audio.setAttribute('playsinline', '');
+  elements.audio.muted = false;
 
   const markReady = () => {
     if (musicReady) return;
@@ -751,7 +753,10 @@ function scheduleNavigateToResult() {
 function setupAutoplayFallback() {
   if (!isTrainingPage) return;
   const attemptResume = () => {
-    if (!desiredSoundMuted && soundMuted) {
+    if (desiredSoundMuted) {
+      desiredSoundMuted = false;
+    }
+    if (soundMuted) {
       void applySoundState();
     }
   };
