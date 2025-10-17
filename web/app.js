@@ -580,11 +580,6 @@ async function applySoundState() {
     return;
   }
 
-  if (!musicReady) {
-    updateSoundToggleLabel();
-    return;
-  }
-
   if (desiredSoundMuted) {
     elements.audio.pause();
     soundMuted = true;
@@ -596,10 +591,14 @@ async function applySoundState() {
   try {
     ensureAudioGraph();
     const resumePromise = ensureAudioContextRunning();
-    const playPromise = elements.audio.play();
-    const normalizedPlayPromise = playPromise instanceof Promise ? playPromise : Promise.resolve();
+    const playResult = elements.audio.play();
     elements.audio.playbackRate = 1.2;
-    await Promise.all([resumePromise, normalizedPlayPromise]);
+    if (playResult instanceof Promise) {
+      await Promise.all([resumePromise, playResult]);
+    } else {
+      await resumePromise;
+    }
+    musicReady = true;
     soundMuted = false;
     startSpectrumAnimation();
   } catch (error) {
