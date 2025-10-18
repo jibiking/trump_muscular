@@ -18,7 +18,6 @@ const totalsInitial = () => ({ 腕立て伏せ: 0, スクワット: 0, バーピ
 
 const RESULT_STORAGE_KEY = 'trump-muscular:last-result';
 const SESSION_SETTINGS_KEY = 'trump-muscular:session-settings';
-const VALID_CUSTOM_MAX = [20, 30, 40, 50];
 const AUTO_RESULT_DELAY_MS = 600;
 const isTrainingPage = document.body?.dataset.page === 'training';
 
