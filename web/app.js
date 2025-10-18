@@ -1,17 +1,4 @@
-const suits = [
-  { key: 'spade', name: 'スペード', glyph: '♠', exercise: '腕立て伏せ', fill: '♠', toneClass: 'tone-spade' },
-  { key: 'heart', name: 'ハート', glyph: '♥', exercise: 'スクワット', fill: '♥', toneClass: 'tone-heart' },
-  { key: 'diamond', name: 'ダイヤ', glyph: '♦', exercise: '腹筋', fill: '♦', toneClass: 'tone-diamond' },
-  { key: 'club', name: 'クラブ', glyph: '♣', exercise: 'バーピー', fill: '♣', toneClass: 'tone-club' }
-];
-
-const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-const valueByRank = {
-  A: 1,
-  J: 11,
-  Q: 12,
-  K: 22
-};
+import { suits, VALID_CUSTOM_MAX, buildDeck } from './deck.js';
 
 const exerciseLabels = {
   腕立て伏せ: '腕立て',
@@ -394,7 +381,7 @@ function drawSpectrumFrame() {
 
 function resetState() {
   sessionSettings = loadSessionSettings();
-  state.deck = buildDeck();
+  state.deck = buildDeck(sessionSettings);
   state.totalCards = state.deck.length;
   shuffle(state.deck);
   state.totals = totalsInitial();
@@ -430,37 +417,6 @@ function handleShortcuts(event) {
     if (state.deck.length === 0) return;
     openSummary();
   }
-}
-
-function buildDeck() {
-  const deck = [];
-  const now = Date.now();
-  const useCustom = isCustomSession();
-  suits.forEach((suit) => {
-    if (useCustom) {
-      const maxValue = sessionSettings.maxValue;
-      for (let value = 1; value <= maxValue; value += 1) {
-        deck.push({
-          ...suit,
-          rank: String(value),
-          value,
-          id: `${suit.key}-${value}-${now}`
-        });
-      }
-      // Ensureキング扱いは13だが、数値デッキに含まれているため追加処理不要
-    } else {
-      ranks.forEach((rank) => {
-        const value = valueByRank[rank] ?? Number(rank);
-        deck.push({
-          ...suit,
-          rank,
-          value,
-          id: `${suit.key}-${rank}-${now}`
-        });
-      });
-    }
-  });
-  return deck;
 }
 
 function shuffle(deck) {

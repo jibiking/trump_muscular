@@ -63,6 +63,8 @@ ruby card_trainer.rb [--seed=SEED] [--no-color] [--no-bell]
 
 ```bash
 ruby test/test_deck.rb
+# フロント用デッキのバリデーション
+node test/deck.test.mjs
 ```
 
 カード 52 枚のユニークさ、値マッピング、キング 22 回ルールをビシッと検証するぞ。
