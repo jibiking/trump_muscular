@@ -62,3 +62,10 @@ if (canvas) {
     cancelAnimationFrame(animationFrame);
   });
 }
+
+const SETTINGS_KEY = 'trump-muscular:session-settings';
+
+const defaultStartButton = document.querySelector('.btn-start--default');
+defaultStartButton?.addEventListener('click', () => {
+  sessionStorage.removeItem(SETTINGS_KEY);
+});

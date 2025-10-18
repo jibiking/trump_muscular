@@ -30,6 +30,8 @@ const exerciseTips = {
 const totalsInitial = () => ({ 腕立て伏せ: 0, スクワット: 0, バーピー: 0, 腹筋: 0 });
 
 const RESULT_STORAGE_KEY = 'trump-muscular:last-result';
+const SESSION_SETTINGS_KEY = 'trump-muscular:session-settings';
+const VALID_CUSTOM_MAX = [20, 30, 40, 50];
 const AUTO_RESULT_DELAY_MS = 600;
 const isTrainingPage = document.body?.dataset.page === 'training';
 
@@ -39,7 +41,8 @@ const state = {
   history: [],
   startedAt: null,
   sessionStarted: false,
-  navigateScheduled: false
+  navigateScheduled: false,
+  totalCards: 52
 };
 
 const timers = {
@@ -86,6 +89,24 @@ const elements = {
 
 const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext || null;
 
+function loadSessionSettings() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_SETTINGS_KEY);
+    if (!raw) return { mode: 'default' };
+    const parsed = JSON.parse(raw);
+    if (parsed?.mode === 'custom' && VALID_CUSTOM_MAX.includes(Number(parsed.maxValue))) {
+      return { mode: 'custom', maxValue: Number(parsed.maxValue) };
+    }
+  } catch (error) {
+    console.warn('セッション設定の読み込みに失敗しました', error);
+  }
+  return { mode: 'default' };
+}
+
+function isCustomSession() {
+  return sessionSettings.mode === 'custom';
+}
+
 const audioState = {
   context: null,
   analyser: null,
@@ -106,6 +127,8 @@ const spectrumState = {
 let musicReady = false;
 let soundMuted = !isTrainingPage;
 let desiredSoundMuted = !isTrainingPage;
+
+let sessionSettings = loadSessionSettings();
 
 if (isTrainingPage) {
   init();
@@ -370,7 +393,9 @@ function drawSpectrumFrame() {
 }
 
 function resetState() {
+  sessionSettings = loadSessionSettings();
   state.deck = buildDeck();
+  state.totalCards = state.deck.length;
   shuffle(state.deck);
   state.totals = totalsInitial();
   state.history = [];
@@ -410,16 +435,30 @@ function handleShortcuts(event) {
 function buildDeck() {
   const deck = [];
   const now = Date.now();
+  const useCustom = isCustomSession();
   suits.forEach((suit) => {
-    ranks.forEach((rank) => {
-      const value = valueByRank[rank] ?? Number(rank);
-      deck.push({
-        ...suit,
-        rank,
-        value,
-        id: `${suit.key}-${rank}-${now}`
+    if (useCustom) {
+      const maxValue = sessionSettings.maxValue;
+      for (let value = 1; value <= maxValue; value += 1) {
+        deck.push({
+          ...suit,
+          rank: String(value),
+          value,
+          id: `${suit.key}-${value}-${now}`
+        });
+      }
+      // Ensureキング扱いは13だが、数値デッキに含まれているため追加処理不要
+    } else {
+      ranks.forEach((rank) => {
+        const value = valueByRank[rank] ?? Number(rank);
+        deck.push({
+          ...suit,
+          rank,
+          value,
+          id: `${suit.key}-${rank}-${now}`
+        });
       });
-    });
+    }
   });
   return deck;
 }
@@ -508,10 +547,11 @@ function updateTotals() {
 
 function updateProgress() {
   const drawn = state.history.length;
-  const total = 52;
-  const percent = Math.round((drawn / total) * 100);
+  const total = state.totalCards ?? 52;
+  const safeTotal = total > 0 ? total : drawn;
+  const percent = safeTotal > 0 ? Math.round((drawn / safeTotal) * 100) : 0;
   elements.progressBar.style.width = `${percent}%`;
-  elements.progressText.textContent = `${drawn} / ${total} 枚`;
+  elements.progressText.textContent = `${drawn} / ${safeTotal} 枚`;
 }
 
 function addLogEntry(card) {
@@ -523,15 +563,20 @@ function addLogEntry(card) {
 
 function openSummary() {
   const drawn = state.history.length;
-  const total = 52;
+  const total = state.totalCards ?? 52;
   const remain = state.deck.length;
   const suitRemain = suits.map((suit) => {
     const remaining = state.deck.filter((card) => card.key === suit.key).length;
     return `<li>${suit.name}：${remaining}枚</li>`;
   });
 
+  const customNote = isCustomSession()
+    ? `<p class="summary__note">カスタムモード：最大レップ ${sessionSettings.maxValue}（キングは13回固定）</p>`
+    : '';
+
   elements.summaryContent.innerHTML = `
     <p>引いた枚数：${drawn}枚 / 残り：${remain}枚</p>
+    ${customNote}
     <h3>累計回数</h3>
     <ul class="summary__totals">
       ${Object.entries(state.totals)
@@ -550,7 +595,7 @@ function openSummary() {
 }
 
 function getHypeLine(card) {
-  if (card.rank === 'K') {
+  if (!isCustomSession() && card.rank === 'K') {
     return 'ウィィィー！！！キングで22回コンボフィーバー、クラブビート合わせて筋肉リーダー！ブラザー！！';
   }
 
@@ -566,7 +611,7 @@ function getHypeLine(card) {
 function buildGuidance(card) {
   const hype = getHypeLine(card);
 
-  if (card.rank === 'K') {
+  if (!isCustomSession() && card.rank === 'K') {
     return `<p class="card__flow card__flow--lead">${hype}</p>`;
   }
 
@@ -824,7 +869,9 @@ function persistResultSnapshot() {
       exercise: card.exercise
     })),
     draws: state.history.length,
-    totalReps: Object.values(state.totals).reduce((sum, count) => sum + count, 0)
+    totalReps: Object.values(state.totals).reduce((sum, count) => sum + count, 0),
+    totalCards: state.totalCards,
+    settings: { ...sessionSettings }
   };
   sessionStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify(snapshot));
 }

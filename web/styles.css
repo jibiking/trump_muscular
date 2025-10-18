@@ -134,6 +134,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 18px;
 }
 
 .btn-start {
@@ -143,6 +144,10 @@ body {
   letter-spacing: 0.12em;
   box-shadow: 0 28px 60px -22px rgba(255, 140, 80, 0.85);
   text-decoration: none;
+}
+
+.btn-start--custom {
+  box-shadow: 0 20px 44px -24px rgba(120, 140, 255, 0.65);
 }
 
 .landing-highlights {
@@ -664,6 +669,74 @@ body {
   display: grid;
   gap: 12px;
   margin-bottom: 20px;
+}
+
+.summary__note {
+  margin: 8px 0 20px;
+  color: rgba(248, 249, 255, 0.72);
+  letter-spacing: 0.04em;
+}
+
+.custom-form {
+  width: min(520px, 100%);
+  background: rgba(12, 16, 30, 0.82);
+  border: 1px solid rgba(255, 189, 89, 0.18);
+  border-radius: 28px;
+  padding: 32px;
+  box-shadow: 0 28px 70px -36px rgba(4, 5, 9, 0.9);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.custom-form fieldset {
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.custom-form legend {
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  margin-bottom: 12px;
+}
+
+.custom-form__hint {
+  margin: 0 0 8px;
+  color: rgba(248, 249, 255, 0.7);
+  letter-spacing: 0.04em;
+}
+
+.custom-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 189, 89, 0.16);
+  cursor: pointer;
+}
+
+.custom-option input {
+  width: 20px;
+  height: 20px;
+}
+
+.custom-option span {
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.custom-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
 }
 
 .summary__totals li {

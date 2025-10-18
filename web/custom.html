@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>トランプマスキュラー | カスタマイズ</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body data-page="custom">
+    <canvas id="spectrum-canvas" class="spectrum-canvas" aria-hidden="true"></canvas>
+    <main class="app app--landing">
+      <header class="hero hero--landing">
+        <div>
+          <p class="tag">Deck Remix</p>
+          <h1>カスタマイズセッション</h1>
+          <p class="lead lead--landing">
+            全スート共通で最大レップをセットして、自分仕様のコンボを刻もう。キングは13回に固定されるぞブラザー！設定後は即プレイだ。
+          </p>
+        </div>
+      </header>
+
+      <form class="custom-form" id="custom-form">
+        <fieldset>
+          <legend>最大レップを選択</legend>
+          <p class="custom-form__hint">数字を選ぶと各スートが 1 からその値までのカード構成になる。キングは 13 回固定。</p>
+          <label class="custom-option">
+            <input type="radio" name="max" value="20" checked />
+            <span>20 レップ（全80枚）</span>
+          </label>
+          <label class="custom-option">
+            <input type="radio" name="max" value="30" />
+            <span>30 レップ（全120枚）</span>
+          </label>
+          <label class="custom-option">
+            <input type="radio" name="max" value="40" />
+            <span>40 レップ（全160枚）</span>
+          </label>
+          <label class="custom-option">
+            <input type="radio" name="max" value="50" />
+            <span>50 レップ（全200枚）</span>
+          </label>
+        </fieldset>
+        <div class="custom-actions">
+          <a class="btn text" href="index.html">戻る</a>
+          <button class="btn primary" type="submit">セッション開始</button>
+        </div>
+      </form>
+    </main>
+    <script type="module" src="top.js"></script>
+    <script type="module" src="custom.js"></script>
+  </body>
+</html>

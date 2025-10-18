@@ -33,6 +33,11 @@ function renderSummary(data) {
   const draws = data.draws ?? data.history.length;
   const startAt = data.startedAt ? formatDate(data.startedAt) : null;
   const completedLabel = completedAt ?? 'ついさっき';
+  const settings = data.settings ?? { mode: 'default' };
+  const deckLabel = settings.mode === 'custom'
+    ? `カスタム / 最大${settings.maxValue}レップ`
+    : 'デフォルトデッキ';
+  const totalCards = data.totalCards ?? (settings.mode === 'custom' ? (settings.maxValue || 0) * 4 : 52);
 
   messageEl.innerHTML = `デッキを制覇したナイスフロウ！${completedLabel}にセッション完了、クラブビートがまだ鳴り止まないぜブラザー！！`;
 
@@ -52,6 +57,14 @@ function renderSummary(data) {
     <div class="result-metric">
       <span class="result-metric__label">開始時刻</span>
       <strong class="result-metric__value">${startAt ?? '---'}</strong>
+    </div>
+    <div class="result-metric">
+      <span class="result-metric__label">デッキ構成</span>
+      <strong class="result-metric__value">${deckLabel}</strong>
+    </div>
+    <div class="result-metric">
+      <span class="result-metric__label">総カード枚数</span>
+      <strong class="result-metric__value">${totalCards}</strong>
     </div>
   `;
 }
